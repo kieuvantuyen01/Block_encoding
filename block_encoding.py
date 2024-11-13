@@ -224,7 +224,7 @@ def encode_all_zero_block(X, n, k, var_index):
     current_r = r1  # Initialize current_r
     
     # For remaining variables
-    for i in range(n-2, n-k-1, -1):
+    for i in range(n-2, k, -1):
         new_r = var_index + 1
         var_index += 1
         # -Xn-m-1 ^ Rm -> Rm+1
@@ -320,12 +320,14 @@ def encode_right_all_one_block(X, n, k, var_index):
             var_index += 1
 
     if start_id <= n and end_id > n:
-        r1 = var_index
-        clauses.append([-X[start_id], -X[start_id+1], r1])
-        clauses.append([X[start_id], -r1])
-        clauses.append([X[start_id+1], -r1])
-        r_vars.append(r1)
-        current_r = r1  # Update current_r
+        r_vars.append(X[start_id])
+        if start_id+1 <= n:
+            r1 = var_index
+            clauses.append([-X[start_id], -X[start_id+1], r1])
+            clauses.append([X[start_id], -r1])
+            clauses.append([X[start_id+1], -r1])
+            r_vars.append(r1)
+            current_r = r1  # Update current_r
 
         for i in range(start_id+2, n+1):
             new_r = var_index + 1
@@ -452,6 +454,6 @@ def test_block_encoding(n, k):
 # Example usage
 if __name__ == "__main__":
     # Test with different values
-    test_block_encoding(n=9, k=4)
+    test_block_encoding(n=14, k=5)
     print("\n" + "="*50 + "\n")
     # test_block_encoding(n=15, k=4)
