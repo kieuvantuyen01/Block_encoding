@@ -119,7 +119,7 @@ def block_encoding(X, k, var_index):
     clauses.append([-X[1], rb_final[0]])
     if rc_final:
         clauses.append([-X[1], rc_final[0]])
-    for i in range(1, n-k+1):
+    for i in range(2, n-k+1):
         # -X[i-1] ^ X[i] -> Ra,i ^ Rb,i ^ Rc,i
         clauses.append([X[i-1], -X[i], ra_final[i-1]])
         clauses.append([X[i-1], -X[i], rb_final[i-1]])
