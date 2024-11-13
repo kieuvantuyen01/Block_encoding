@@ -116,18 +116,21 @@ def block_encoding(X, k, var_index):
     # First line
     # X1 -> Ra,1 ^ Rb,1 ^ Rc,1
     clauses.append([-X[1], ra_final[0]])
-    clauses.append([-X[1], rb_final[0]])
-    if rc_final:
-        clauses.append([-X[1], rc_final[0]])
+    if rb_final[0]:
+        clauses.append([-X[1], rb_final[0]])
+    clauses.append([-X[1], rc_final[0]])
     for i in range(2, n-k+1):
         # -X[i-1] ^ X[i] -> Ra,i ^ Rb,i ^ Rc,i
         clauses.append([X[i-1], -X[i], ra_final[i-1]])
-        clauses.append([X[i-1], -X[i], rb_final[i-1]])
+        if rb_final[i-1]:
+            clauses.append([X[i-1], -X[i], rb_final[i-1]])
         if rc_final:
             clauses.append([X[i-1], -X[i], rc_final[i-1]])
 
     # Last line
-    clauses.append([X[n-k], -X[n-k+1], rb_final[n-k]])
+    if len(rb_final) >= n-k+1:
+        if rb_final[n-k]:
+            clauses.append([X[n-k], -X[n-k+1], rb_final[n-k]])
     if rc_final:
         clauses.append([X[n-k], -X[n-k+1], rc_final[n-k]])
     
@@ -242,7 +245,7 @@ def encode_left_all_one_block(X, n, k, var_index):
     start_id = 2
     end_id = start_id + k - 3
     
-    while (start_id < n):
+    while (start_id < n and end_id < n):
         r_vars_tmp = []
         # Add the last variable
         r_vars_tmp.append(X[end_id])
@@ -273,8 +276,9 @@ def encode_left_all_one_block(X, n, k, var_index):
         end_id = start_id + k - 3
         r_vars_tmp.reverse()  # Reverse in place
         r_vars.extend(r_vars_tmp)  # Then extend
-        if (start_id < n):
+        if (start_id < n and end_id < n):
             var_index += 1
+            r_vars.append(0)
     
     return clauses, var_index + 1, r_vars
     
@@ -284,7 +288,7 @@ def encode_right_all_one_block(X, n, k, var_index):
     start_id = k
     end_id = start_id + k - 2
 
-    while (start_id < n):
+    while (start_id <= n and end_id <= n):
         # Add the first variable
         r_vars.append(X[start_id])
 
@@ -312,8 +316,25 @@ def encode_right_all_one_block(X, n, k, var_index):
 
         start_id = start_id + k - 1
         end_id = start_id + k - 2
-        if (start_id < n):
+        if (start_id <= n):
             var_index += 1
+
+    if start_id <= n and end_id > n:
+        r1 = var_index
+        clauses.append([-X[start_id], -X[start_id+1], r1])
+        clauses.append([X[start_id], -r1])
+        clauses.append([X[start_id+1], -r1])
+        r_vars.append(r1)
+        current_r = r1  # Update current_r
+
+        for i in range(start_id+2, n+1):
+            new_r = var_index + 1
+            var_index += 1
+            clauses.append([-X[i], -current_r, new_r])
+            clauses.append([X[i], -new_r])
+            clauses.append([current_r, -new_r])
+            current_r = new_r
+            r_vars.append(new_r)
 
     return clauses, var_index + 1, r_vars
 
