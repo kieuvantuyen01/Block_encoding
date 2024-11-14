@@ -96,6 +96,86 @@
 # X is list of variables (size n)
 # def block_encoding(X, k, var_index):
 
+from pysat.solvers import Glucose3
+from pysat.formula import CNF
+
+def solve_block_encoding(n, k):
+    """
+    Solve the block encoding using Glucose SAT solver
+    Args:
+        n: number of variables
+        k: parameter k from the formula
+    Returns:
+        solution: list of True/False values for each variable if satisfiable
+        None if unsatisfiable
+    """
+    # Create list of variables [0, 1, ..., n]
+    X = list(range(0, n + 1))
+    
+    # Start auxiliary variables after n
+    initial_var_index = n + 1
+    
+    # Get the encoding
+    clauses, final_var_index = block_encoding(X, k, initial_var_index)
+    
+    # Create CNF formula
+    cnf = CNF()
+    for clause in clauses:
+        cnf.append(clause)
+
+    cnf.append([13])
+    # cnf.append([2])
+    # cnf.append([3])
+    cnf.append([-11])
+    cnf.append([-12])
+    
+    # Initialize solver
+    solver = Glucose3()
+    
+    # Add clauses to solver
+    solver.append_formula(cnf)
+    
+    # Solve
+    is_sat = solver.solve()
+    
+    if is_sat:
+        # Get model (solution)
+        model = solver.get_model()
+        
+        # Convert to readable format
+        solution = []
+        for i in range(1, n+1):  # Only show original variables
+            if i in model:
+                solution.append(True)
+            elif -i in model:
+                solution.append(False)
+            else:
+                solution.append(None)  # Variable not assigned
+                
+        # Print results
+        print(f"\nSolution found for n={n}, k={k}:")
+        print("Variable assignments:")
+        for i, val in enumerate(solution, 1):
+            print(f"X{i} = {val}")
+            
+        # Optionally print auxiliary variables
+        print("\nAuxiliary variable assignments:")
+        for i in range(n+1, final_var_index):
+            if i in model:
+                print(f"R{i-n} = True")
+            elif -i in model:
+                print(f"R{i-n} = False")
+            else:
+                print(f"R{i-n} = None")
+                
+        return solution
+    else:
+        print(f"\nFormula is UNSATISFIABLE for n={n}, k={k}")
+        return None
+    
+    # Don't forget to delete the solver
+    solver.delete()
+
 def block_encoding(X, k, var_index):
     n = len(X) - 1
     clauses = []
@@ -115,97 +195,29 @@ def block_encoding(X, k, var_index):
     # For each implication in the formula
     # First line
     # X1 -> Ra,1 ^ Rb,1 ^ Rc,1
-    clauses.append([-X[1], ra_final[0]])
-    if rb_final[0]:
-        clauses.append([-X[1], rb_final[0]])
-    clauses.append([-X[1], rc_final[0]])
+    if ra_final and len(ra_final) > 0:
+        clauses.append([-X[1], ra_final[0]])
+    if rb_final and len(rb_final) > 0: 
+        if  rb_final and rb_final[0]:
+            clauses.append([-X[1], rb_final[0]])
+    if rc_final and len(rc_final) > 0: 
+        clauses.append([-X[1], rc_final[0]])
     for i in range(2, n-k+1):
         # -X[i-1] ^ X[i] -> Ra,i ^ Rb,i ^ Rc,i
         clauses.append([X[i-1], -X[i], ra_final[i-1]])
-        if rb_final[i-1]:
+        if rb_final and len(rb_final) >= i and rb_final[i-1]:
             clauses.append([X[i-1], -X[i], rb_final[i-1]])
-        if rc_final:
+        if rc_final and len(rc_final) >= i:
             clauses.append([X[i-1], -X[i], rc_final[i-1]])
 
     # Last line
-    if len(rb_final) >= n-k+1:
+    if n > k and rb_final and len(rb_final) >= n-k+1:
         if rb_final[n-k]:
             clauses.append([X[n-k], -X[n-k+1], rb_final[n-k]])
-    if rc_final:
+    if n > k and rc_final and len(rc_final) >= n-k+1: 
         clauses.append([X[n-k], -X[n-k+1], rc_final[n-k]])
     
-    # # For each implication in the formula
-    # for i in range(1, n-k+2):
-    #     # Encode block All Zero (Ra,i)
-    #     zero_block_vars = []
-    #     # Start from k+i and go to n
-    #     for j in range(k+i, n+1):
-    #         zero_block_vars.append(-X[j-1])  # -1 because X is 0-based
-            
-    #     ra_clauses, current_var_index, ra_final = encode_all_zero_block(
-    #         zero_block_vars, current_var_index)
-    #     clauses.extend(ra_clauses)
-        
-    #     # Encode block All One (split into Rb,i and Rc,i)
-    #     one_block_vars = []
-    #     # Start from i+1 and collect k-1 variables
-    #     for j in range(i+1, min(i+k, n+1)):
-    #         one_block_vars.append(X[j-1])
-            
-    #     rb_rc_clauses, current_var_index, rb_final, rc_final = encode_all_one_block(
-    #         one_block_vars, k-1, current_var_index)
-    #     clauses.extend(rb_rc_clauses)
-        
-    #     # Add the main implication clause
-    #     if i == 1:
-    #         # X1 -> Ra,1 ^ Rb,1 ^ Rc,1
-    #         clauses.append([-X[0], ra_final])
-    #         clauses.append([-X[0], rb_final])
-    #         if rc_final:  # rc_final might be None for small blocks
-    #             clauses.append([-X[0], rc_final])
-    #     else:
-    #         # -X[i-1] ^ X[i] -> Ra,i ^ Rb,i ^ Rc,i
-    #         clauses.append([X[i-2], -X[i-1], ra_final])
-    #         clauses.append([X[i-2], -X[i-1], rb_final])
-    #         if rc_final:
-    #             clauses.append([X[i-2], -X[i-1], rc_final])
-    
     return clauses, current_var_index
-
-# def encode_all_zero_block(vars, var_index):
-#     """Encode block All Zero using auxiliary variables"""
-#     clauses = []
-#     if not vars:
-#         return clauses, var_index, None
-        
-#     # If we have only one variable
-#     if len(vars) == 1:
-#         return clauses, var_index, vars[0]
-        
-#     # First clause: -Xn-1 ^ -Xn -> R1
-#     if len(vars) == 2:
-#         r1 = var_index
-#         clauses.append([*vars[-2:], r1])
-#         clauses.append([-vars[-2], -r1])
-#         clauses.append([-vars[-1], -r1])
-
-#         return clauses, var_index + 1, r1
-
-#     if len(vars) > 2:
-#         current_r = var_index
-#         # For remaining variables
-#         # for i in range(len(vars)-3, -1, -1):
-#         new_r = var_index + 1
-#         var_index += 1
-#         # -Xn-m-1 ^ Rm -> Rm+1
-#         clauses.append([vars[0], current_r, new_r])
-#         # Xn-m-1 -> -Rm+1
-#         clauses.append([-vars[0], -new_r])
-#         # -Rm -> -Rm+1
-#         clauses.append([-current_r, -new_r])
-#         current_r = new_r
-        
-#         return clauses, var_index + 1, current_r
 
 def encode_all_zero_block(X, n, k, var_index):
     """Encode block All Zero using auxiliary variables"""
@@ -213,26 +225,28 @@ def encode_all_zero_block(X, n, k, var_index):
     r_vars = []  # Store all r variables
 
     # Add the last variable
-    r_vars.append(-X[n])
+    if n >= k+1:
+        r_vars.append(-X[n])
     
     # First clause: -Xn-1 ^ -Xn -> R1
-    r1 = var_index
-    clauses.append([X[-2], X[-1], r1])
-    clauses.append([-X[-2], -r1])
-    clauses.append([-X[-1], -r1])
-    r_vars.append(r1)
-    current_r = r1  # Initialize current_r
+    if n >= k+2:
+        r1 = var_index
+        clauses.append([X[-2], X[-1], r1])
+        clauses.append([-X[-2], -r1])
+        clauses.append([-X[-1], -r1])
+        r_vars.append(r1)
+        current_r = r1  # Initialize current_r
     
     # For remaining variables
     for i in range(n-2, k, -1):
         new_r = var_index + 1
         var_index += 1
         # -Xn-m-1 ^ Rm -> Rm+1
-        clauses.append([X[i], current_r, new_r])
+        clauses.append([X[i], -current_r, new_r])
         # Xn-m-1 -> -Rm+1
         clauses.append([-X[i], -new_r])
         # -Rm -> -Rm+1
-        clauses.append([-current_r, -new_r])
+        clauses.append([current_r, -new_r])
         current_r = new_r
         r_vars.append(new_r)
     
@@ -253,8 +267,12 @@ def encode_left_all_one_block(X, n, k, var_index):
         if start_id > end_id:
             break
         if start_id == end_id:
-            # r_vars.append(X[end_id])
-            break
+            start_id = start_id + k - 1
+            end_id = start_id + k - 3
+            r_vars.extend(r_vars_tmp)
+            if (start_id < n and end_id < n):
+                r_vars.append(0)
+            continue
             
         r1 = var_index
         clauses.append([-X[end_id-1], -X[end_id], r1])
@@ -290,13 +308,18 @@ def encode_right_all_one_block(X, n, k, var_index):
 
     while (start_id <= n and end_id <= n):
         # Add the first variable
-        r_vars.append(X[start_id])
+        if k > 1:
+            r_vars.append(X[start_id])
 
         if start_id > end_id:
             break
         if start_id == end_id:
             # r_vars.append(X[end_id])
-            break
+            start_id = start_id + k - 1
+            end_id = start_id + k - 2
+            # if (start_id <= n):
+            #     var_index += 1
+            continue
 
         r1 = var_index
         clauses.append([-X[start_id], -X[start_id+1], r1])
@@ -454,6 +477,10 @@ def test_block_encoding(n, k):
 # Example usage
 if __name__ == "__main__":
     # Test with different values
-    test_block_encoding(n=14, k=5)
+    test_block_encoding(n=15, k=3)
+
+    # Solve with Glucose SAT solver
+    solve_block_encoding(n=15, k=3)
+    
     print("\n" + "="*50 + "\n")
     # test_block_encoding(n=15, k=4)
